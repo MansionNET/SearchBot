@@ -118,7 +118,7 @@ sudo systemctl restart searchbot
 Edit `searchbot.py` to modify these settings:
 
 ```python
-self.server = "irc.inthemansion.com"
+self.server = "irc.example.com"
 self.port = 6697  # SSL port
 self.nickname = "SearchBot"
 self.channels = ["#test_room"]  # Add more channels as needed
