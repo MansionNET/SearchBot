@@ -2,6 +2,14 @@
 
 An IRC bot that provides private search functionality using the Hearch API, designed for privacy and easy deployment.
 
+## IRC Server Details
+
+Join us on MansionNET IRC to chat with us, test the bot, and play some trivia! 
+
+🌐 **Server:** irc.inthemansion.com  
+🔒 **Port:** 6697 (SSL)  
+📝 **Channel:** #opers, #general, #welcome, #devs (and many others)
+
 ## Features
 
 - Privacy-focused search using Hearch's metasearch API
