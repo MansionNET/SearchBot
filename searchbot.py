@@ -54,6 +54,10 @@ class SearchBot:
         # Store ongoing private searches
         self.active_searches = {}
         
+        # Store last search results for !searchn command
+        self.last_search_results = {}  # user -> list of results
+        self.search_index = {}  # user -> current index
+        
         # SSL Configuration
         self.ssl_context = ssl.create_default_context()
         self.ssl_context.check_hostname = False
@@ -302,14 +306,103 @@ class SearchBot:
             print(f"Error handling private message: {str(e)}")
             self.send_private_message(sender, "An error occurred processing your request.")
 
+    def send_channel_message(self, channel: str, message: str):
+        """Send a message to a channel"""
+        try:
+            # Split long messages to avoid truncation
+            max_length = 400  # IRC message length limit with safety margin
+            
+            while message:
+                if len(message) <= max_length:
+                    self.send(f"PRIVMSG {channel} :{message}")
+                    break
+                
+                # Find a good breaking point
+                split_point = message[:max_length].rfind(' ')
+                if split_point == -1:
+                    split_point = max_length
+                
+                self.send(f"PRIVMSG {channel} :{message[:split_point]}")
+                message = message[split_point:].lstrip()
+                time.sleep(0.5)  # Avoid flooding
+                
+        except Exception as e:
+            print(f"Error sending channel message: {str(e)}")
+
     def handle_channel_message(self, sender: str, channel: str, message: str):
         """Handle channel messages"""
-        if message == "!help":
-            help_msg = ("SearchBot: Use !search <query> in a private message to search privately. "
-                       "Results will be sent to you directly.")
-            self.send(f"PRIVMSG {channel} :{help_msg}")
-        elif message.startswith("!search"):
-            self.send(f"PRIVMSG {channel} :{sender}: To protect your privacy, please use search commands in a private message.")
+        try:
+            if message.startswith("!search "):
+                if not self.rate_limiter.can_make_request():
+                    self.send_channel_message(channel, f"{sender}: Rate limit exceeded. Please try again later.")
+                    return
+                
+                query = message[8:].strip()
+                if not query:
+                    self.send_channel_message(channel, f"{sender}: Usage: !search <query>")
+                    return
+                
+                # Perform search and store results
+                results = self.search_hearch(query)
+                self.rate_limiter.add_request()
+                
+                if not results:
+                    self.send_channel_message(channel, f"{sender}: No results found.")
+                    return
+                
+                # Store results for !searchn command
+                self.last_search_results[sender] = results
+                self.search_index[sender] = 0
+                
+                # Send only the first result
+                formatted_result = self.format_search_result(1, results[0])
+                self.send_channel_message(channel, f"{sender}: {formatted_result}")
+                
+                # Add note about more results
+                if len(results) > 1:
+                    self.send_channel_message(channel, f"{sender}: Use !searchn to see the next result ({len(results)-1} more available)")
+                
+                # Add attribution message
+                GRAY = '\x0314'  # IRC color code for gray
+                BLUE = '\x0312'  # IRC color code for blue
+                RESET = '\x0F'   # Reset formatting
+                attribution = f"{GRAY}Search results powered by {BLUE}https://hearch.co/{GRAY} - Privacy-focused metasearch{RESET}"
+                time.sleep(0.5)  # Small delay before attribution
+                self.send_channel_message(channel, attribution)
+                
+            elif message == "!searchn":
+                if sender not in self.last_search_results or not self.last_search_results[sender]:
+                    self.send_channel_message(channel, f"{sender}: No previous search found. Use !search <query> first.")
+                    return
+                
+                results = self.last_search_results[sender]
+                current_index = self.search_index.get(sender, 0)
+                
+                if current_index >= len(results) - 1:
+                    self.send_channel_message(channel, f"{sender}: No more results. All {len(results)} results have been shown.")
+                    return
+                
+                # Show next result
+                current_index += 1
+                self.search_index[sender] = current_index
+                formatted_result = self.format_search_result(current_index + 1, results[current_index])
+                self.send_channel_message(channel, f"{sender}: {formatted_result}")
+                
+                # Add note about remaining results
+                remaining = len(results) - current_index - 1
+                if remaining > 0:
+                    self.send_channel_message(channel, f"{sender}: Use !searchn again for the next result ({remaining} more available)")
+                
+            elif message == "!help":
+                help_msg = ("SearchBot Commands: "
+                          "!search <query> - Search the web (shows first result in channel) | "
+                          "!searchn - Show next result from previous search | "
+                          "!help - Show this help message")
+                self.send_channel_message(channel, help_msg)
+                
+        except Exception as e:
+            print(f"Error handling channel message: {str(e)}")
+            self.send_channel_message(channel, f"{sender}: An error occurred processing your request.")
 
     def run(self):
         """Main bot loop"""
