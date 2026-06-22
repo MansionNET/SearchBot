@@ -1,3 +1,16 @@
+> # ⚠️ This repository has moved
+>
+> **SearchBot** is now developed at **[git.inthemansion.com/MansionNET/SearchBot](https://git.inthemansion.com/MansionNET/SearchBot)**.
+>
+> This GitHub copy is **archived and read-only** — it will not receive further updates.
+> Please update your remotes:
+>
+> ```
+> git remote set-url origin git@git.inthemansion.com:MansionNET/SearchBot.git
+> ```
+
+---
+
 # SearchBot
 
 An IRC bot that provides private search functionality using the Hearch API, designed for privacy and easy deployment.
